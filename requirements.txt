@@ -1,0 +1,8 @@
+streamlit
+praw
+nltk
+textblob
+pandas
+matplotlib
+pytest
+flake8
