@@ -13,5 +13,5 @@ def get_oauth_reddit():
         client_id=os.getenv("OAUTH_CLIENT_ID"),
         client_secret=os.getenv("OAUTH_CLIENT_SECRET"),
         redirect_uri=os.getenv("REDIRECT_URI", "http://localhost:8501/"),
-        user_agent="VolatilityApp OAuth",
+        user_agent="VolatilityApp by u/imaryapiyush99",
     )

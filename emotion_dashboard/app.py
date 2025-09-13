@@ -10,6 +10,10 @@ from textblob import TextBlob
 import nltk
 from urllib.parse import urlparse, parse_qs
 
+from dotenv import load_dotenv
+load_dotenv()
+
+
 # Add project root so imports from utils work
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -50,7 +54,8 @@ auth_url = reddit_oauth.auth.url(["identity", "history"], "state123", "permanent
 st.markdown(f"[🔗 Connect Reddit Account]({auth_url})")
 
 query_params = st.query_params
-code = query_params.get("code", [None])[0]
+code = st.query_params.get("code")
+
 
 if code and "refresh_token" not in st.session_state:
     try:

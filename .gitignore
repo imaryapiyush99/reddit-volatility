@@ -3,17 +3,21 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.db
 
-# Virtual environments
+# Virtual environment
 .venv/
-env/
 venv/
+env/
 
-# Jupyter
+# Jupyter / Streamlit cache
 .ipynb_checkpoints
+.streamlit/
 
-# OS files
+# OS
 .DS_Store
+Thumbs.db
 
 # Secrets
 .env
+
