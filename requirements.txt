@@ -6,3 +6,7 @@ pandas
 matplotlib
 pytest
 flake8
+python-dotenv
+numpy
+plotly
+scipy
