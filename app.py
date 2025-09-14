@@ -14,6 +14,7 @@ nltk.download('vader_lexicon', quiet=True)
 load_dotenv()
 st.set_page_config(page_title="Reddit Emotional Volatility", layout="wide")
 
+
 # ------------------ Custom Styling ------------------
 st.markdown("""
 <style>
@@ -41,6 +42,8 @@ st.markdown("""
 
 st.markdown('<div class="big-title">🧠 Reddit Emotional Volatility Dashboard</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">Track, Compare & Visualize Emotional Patterns Across Reddit</div>', unsafe_allow_html=True)
+
+_analyzer = SentimentEnsemble()
 
 # ------------------ Reddit Setup ------------------
 reddit_oauth = get_oauth_reddit()
@@ -135,7 +138,18 @@ with tab1:
 
     df_user = st.session_state.df_user
     if not df_user.empty:
+        df_user = analyze_sentiment(df_user, _analyzer)
+    
+        st.session_state["df_user"] = df_user
         display_metrics(df_user)
+        
+        fig_sent = px.line(df_user, x="time", y="sentiment_score", markers=True, title="📈 Sentiment Timeline")
+        fig_sent.update_yaxes(range=[-1, 1])
+        st.plotly_chart(fig_sent, use_container_width=True)
+
+        fig_vol = px.line(df_user, x="time", y="volatility", markers=True, title="🌪 Volatility Timeline")
+        st.plotly_chart(fig_vol, use_container_width=True)
+
 
         st.plotly_chart(
             px.line(df_user, x="time", y="sentiment_score", color="type",
@@ -148,6 +162,8 @@ with tab1:
                     title="🌪 Volatility Timeline (Posts vs Comments)", markers=True),
             use_container_width=True
         )
+    else:
+        st.info("🔑 Please connect your Reddit account to see personal volatility.")    
 
 # ------------------ COMMUNITY TAB ------------------
 with tab2:
@@ -170,11 +186,11 @@ with tab2:
         df_comm = pd.DataFrame(all_posts)
         if not df_comm.empty:
             analyzer = SentimentEnsemble()
-            df_comm = analyze_sentiment(df_comm, analyzer)
+            df_comm = analyze_sentiment(df_comm, _analyzer)
             df_comm["volatility"] = df_comm.groupby("subreddit")["sentiment_score"].transform(
                 lambda x: x.rolling(5).std().fillna(0)
             )
-            st.session_state.df_comm = df_comm
+            st.session_state[df_comm] = df_comm
 
     df_comm = st.session_state.df_comm
     if not df_comm.empty:

@@ -65,11 +65,22 @@ else:
     display_metrics(df_user)
 
     st.plotly_chart(
-        px.line(df_user, x="time", y="sentiment", title="📈 Sentiment Timeline", markers=True)
+        px.line(df_user, x="time", y="sentiment_score", title="📈 Sentiment Timeline", markers=True)
           .update_yaxes(range=[-1, 1]),
         use_container_width=True,
     )
     st.plotly_chart(
         px.line(df_user, x="time", y="volatility", title="🌪 Volatility Timeline", markers=True),
         use_container_width=True,
+    )
+    st.plotly_chart(
+            px.line(df_user, x="time", y="sentiment_score", color="type",
+                    title="📈 Sentiment Timeline (Posts vs Comments)", markers=True)
+              .update_yaxes(range=[-1, 1]),
+            use_container_width=True
+    )
+    st.plotly_chart(
+            px.line(df_user, x="time", y="volatility", color="type",
+                    title="🌪 Volatility Timeline (Posts vs Comments)", markers=True),
+            use_container_width=True
     )
