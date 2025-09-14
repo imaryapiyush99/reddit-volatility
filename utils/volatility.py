@@ -2,7 +2,7 @@ import numpy as np
 from collections import deque
 
 class VolatilityAnalyzer:
-    def _init_(self):
+    def __init__(self):
         self.ensemble = EmotionEnsemble()
     
     def calculate_user_volatility(self, posts_timeline):
