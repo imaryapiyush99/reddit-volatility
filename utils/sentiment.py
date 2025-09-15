@@ -10,7 +10,7 @@ nltk.download("vader_lexicon", quiet=True)
 class SentimentEnsemble:
     """Ensemble sentiment analyzer using VADER + TextBlob + VADER(NLTK) with configurable weights."""
 
-    def __init__(self, w_vader: float = 0.05, w_blob: float = 0.9, w_nltk: float = 0.05):
+    def __init__(self, w_vader: float = 0.4, w_blob: float = 0.3, w_nltk: float = 0.3):
         self.vader = SentimentIntensityAnalyzer()
         self.nltk_analyzer = SentimentIntensityAnalyzer()
         self.w_vader = w_vader

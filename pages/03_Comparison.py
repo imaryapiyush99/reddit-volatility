@@ -28,7 +28,7 @@ else:
     fig_sent = px.line(
         df_all,
         x="time",
-        y="sentiment",
+        y="sentiment_score",
         color="source",
         title="📈 Sentiment: Me vs Community"
     )

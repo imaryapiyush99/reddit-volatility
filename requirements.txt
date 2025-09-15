@@ -10,7 +10,7 @@ pytest
 flake8
 python-dotenv
 scipy
-scikit-learn
+scikit-learn==1.7.2
 
 
 

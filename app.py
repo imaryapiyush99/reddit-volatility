@@ -139,10 +139,13 @@ with tab1:
     df_user = st.session_state.df_user
     if not df_user.empty:
         df_user = analyze_sentiment(df_user, _analyzer)
-    
-        st.session_state["df_user"] = df_user
+        st.session_state.df_user = df_user
+
+        st.write("DEBUG - df_user passed to metrics:", df_user.head())
+        st.write("Columns:", df_user.columns.tolist())
+
         display_metrics(df_user)
-        
+
         fig_sent = px.line(df_user, x="time", y="sentiment_score", markers=True, title="📈 Sentiment Timeline")
         fig_sent.update_yaxes(range=[-1, 1])
         st.plotly_chart(fig_sent, use_container_width=True)
@@ -150,20 +153,8 @@ with tab1:
         fig_vol = px.line(df_user, x="time", y="volatility", markers=True, title="🌪 Volatility Timeline")
         st.plotly_chart(fig_vol, use_container_width=True)
 
-
-        st.plotly_chart(
-            px.line(df_user, x="time", y="sentiment_score", color="type",
-                    title="📈 Sentiment Timeline (Posts vs Comments)", markers=True)
-              .update_yaxes(range=[-1, 1]),
-            use_container_width=True
-        )
-        st.plotly_chart(
-            px.line(df_user, x="time", y="volatility", color="type",
-                    title="🌪 Volatility Timeline (Posts vs Comments)", markers=True),
-            use_container_width=True
-        )
     else:
-        st.info("🔑 Please connect your Reddit account to see personal volatility.")    
+        st.info("🔑 Please connect your Reddit account to see personal volatility.")      
 
 # ------------------ COMMUNITY TAB ------------------
 with tab2:
@@ -185,14 +176,16 @@ with tab2:
 
         df_comm = pd.DataFrame(all_posts)
         if not df_comm.empty:
-            analyzer = SentimentEnsemble()
             df_comm = analyze_sentiment(df_comm, _analyzer)
             df_comm["volatility"] = df_comm.groupby("subreddit")["sentiment_score"].transform(
                 lambda x: x.rolling(5).std().fillna(0)
             )
-            st.session_state[df_comm] = df_comm
+            st.session_state.df_comm = df_comm  # ✅ fixed
 
     df_comm = st.session_state.df_comm
+    st.write("DEBUG - df_comm passed to metrics:", df_comm.head())
+    st.write("Columns:", df_comm.columns.tolist())
+
     if not df_comm.empty:
         display_metrics(df_comm)
         st.plotly_chart(
@@ -205,6 +198,7 @@ with tab2:
                     title="🌪 Community Volatility", markers=True),
             use_container_width=True
         )
+
 
 # ------------------ COMPARISON TAB ------------------
 with tab3:
