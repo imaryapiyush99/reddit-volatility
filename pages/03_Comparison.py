@@ -75,5 +75,45 @@ else:
         )
         st.plotly_chart(fig_vol_avg, use_container_width=True)
 
+    # 🔎 Emotion Distribution: Subreddit vs My Emotion
+    rows = []
+
+# Subreddit distributions
+    for sub in df_comm["subreddit"].unique():
+        df_sub = df_comm[df_comm["subreddit"] == sub]
+        rows.append({
+            "Source": sub,  # <- each subreddit is a source
+            "Positive": int((df_sub["sentiment_score"] > 0.1).sum()),
+            "Neutral": int(df_sub["sentiment_score"].between(-0.1, 0.1).sum()),
+            "Negative": int((df_sub["sentiment_score"] < -0.1).sum()),
+        })
+
+# --- Add My Emotion distribution ---
+    if not df_user.empty and "sentiment_score" in df_user.columns:
+        rows.append({
+            "Source": "My Emotion",
+            "Positive": int((df_user["sentiment_score"] > 0.1).sum()),
+            "Neutral": int(df_user["sentiment_score"].between(-0.1, 0.1).sum()),
+            "Negative": int((df_user["sentiment_score"] < -0.1).sum()),
+        })
+
+# --- Build chart ---
+    if rows:
+        dist_df = pd.DataFrame(rows).melt(
+            id_vars="Source", var_name="Emotion", value_name="Count"
+        )
+        st.plotly_chart(
+            px.bar(
+                dist_df, x="Source", y="Count", color="Emotion",
+                barmode="group", title="🔎 Emotion Distribution: Subreddits vs My Emotion"
+            ),
+            use_container_width=True,
+        )
+
     else:
         st.info("ℹ️ Volatility data not available yet. Fetch sentiment first.")
+
+
+
+
+

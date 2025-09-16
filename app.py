@@ -141,9 +141,6 @@ with tab1:
         df_user = analyze_sentiment(df_user, _analyzer)
         st.session_state.df_user = df_user
 
-        st.write("DEBUG - df_user passed to metrics:", df_user.head())
-        st.write("Columns:", df_user.columns.tolist())
-
         display_metrics(df_user)
 
         fig_sent = px.line(df_user, x="time", y="sentiment_score", markers=True, title="📈 Sentiment Timeline")
@@ -183,8 +180,6 @@ with tab2:
             st.session_state.df_comm = df_comm  # ✅ fixed
 
     df_comm = st.session_state.df_comm
-    st.write("DEBUG - df_comm passed to metrics:", df_comm.head())
-    st.write("Columns:", df_comm.columns.tolist())
 
     if not df_comm.empty:
         display_metrics(df_comm)

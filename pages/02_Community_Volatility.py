@@ -99,13 +99,6 @@ else:
         use_container_width=True,
     )
 
-    dist_df = pd.DataFrame(emotion_counts).melt(id_vars="Subreddit", var_name="Emotion", value_name="Count")
-    fig_dist = px.bar(
-        dist_df, x="Subreddit", y="Count", color="Emotion",
-        barmode="group", title="🔎 Emotion Distribution by Subreddit"
-        )
-    st.plotly_chart(fig_dist, use_container_width=True)
-
     # 🔎 Emotion distribution
     rows = []
     for sub in df_comm["subreddit"].unique():
