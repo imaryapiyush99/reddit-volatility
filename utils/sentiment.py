@@ -10,7 +10,7 @@ nltk.download("vader_lexicon", quiet=True)
 class SentimentEnsemble:
     """Ensemble sentiment analyzer using VADER + TextBlob + VADER(NLTK) with configurable weights."""
 
-    def __init__(self, w_vader: float = 0.4, w_blob: float = 0.3, w_nltk: float = 0.3):
+    def __init__(self, w_vader: float = 0.05, w_blob: float = 0.9, w_nltk: float = 0.05):
         self.vader = SentimentIntensityAnalyzer()
         self.nltk_analyzer = SentimentIntensityAnalyzer()
         self.w_vader = w_vader
@@ -55,18 +55,35 @@ class SentimentEnsemble:
 
 # ---------- Helper function for DataFrames ----------
 import pandas as pd
-
-def analyze_sentiment(df: pd.DataFrame, analyzer: SentimentEnsemble) -> pd.DataFrame:
-    if df is None or df.empty or "text" not in df.columns:
-        return df
-
-    df = df.copy()
-    df["text"] = df["text"].astype(str)
-
-    # float score
+def analyze_sentiment(df, analyzer):
+    # Continuous score
     df["sentiment_score"] = df["text"].apply(analyzer.analyze_text)
 
-    # string label
-    df["sentiment_label"] = df["sentiment_score"].apply(analyzer.score_to_label)
+    # Discrete sentiment (-1, 0, 1)
+    df["sentiment"] = df["sentiment_score"].apply(
+        lambda s: 1 if s > 0.1 else (-1 if s < -0.1 else 0)
+    )
+
+    # Labels for readability
+    df["sentiment_label"] = df["sentiment"].map({
+        1: "positive",
+        0: "neutral",
+        -1: "negative"
+    })
 
     return df
+
+# def analyze_sentiment(df: pd.DataFrame, analyzer: SentimentEnsemble) -> pd.DataFrame:
+#     if df is None or df.empty or "text" not in df.columns:
+#         return df
+
+#     df = df.copy()
+#     df["text"] = df["text"].astype(str)
+
+#     # float score
+#     df["sentiment_score"] = df["text"].apply(analyzer.analyze_text)
+
+#     # string label
+#     df["sentiment_label"] = df["sentiment_score"].apply(analyzer.score_to_label)
+
+#     return df
