@@ -36,59 +36,65 @@ else:
     st.plotly_chart(fig_sent, use_container_width=True)
 
     # --- Volatility Comparison ---
-    if "volatility" in df_user.columns and "volatility" in df_comm.columns:
-        df_user_vol = df_user.copy()
-        df_user_vol["source"] = "Me"
+    # compute volatility if missing
+    if "volatility" not in df_user.columns:
+        df_user = df_user.sort_values("time")
+        df_user["volatility"] = df_user["sentiment_score"].rolling(5).std().fillna(0)
 
-        df_comm_vol = df_comm.copy()
-        df_comm_vol["source"] = df_comm_vol["subreddit"]
-
-        df_all_vol = pd.concat([df_user_vol, df_comm_vol], ignore_index=True)
-
-        # Chart 1: Me vs Each Subreddit
-        fig_vol_each = px.line(
-            df_all_vol,
-            x="time",
-            y="volatility",
-            color="source",
-            title="🌪 Volatility: Me vs Each Subreddit",
-            labels={"volatility": "Volatility", "source": "Source"}
+    if "volatility" not in df_comm.columns:
+        df_comm = df_comm.sort_values("time")
+        df_comm["volatility"] = df_comm.groupby("subreddit")["sentiment_score"].transform(
+            lambda x: x.rolling(5).std().fillna(0)
         )
-        st.plotly_chart(fig_vol_each, use_container_width=True)
 
-        # Chart 2: Me vs Community Average
-        df_comm_avg = df_comm.groupby(df_comm["time"].dt.date)["volatility"].mean().reset_index()
-        df_comm_avg["source"] = "Community Avg"
+    df_user_vol = df_user.copy()
+    df_user_vol["source"] = "Me"
 
-        df_user_avg = df_user.copy()
-        df_user_avg = df_user_avg.groupby(df_user_avg["time"].dt.date)["volatility"].mean().reset_index()
-        df_user_avg["source"] = "Me"
+    df_comm_vol = df_comm.copy()
+    df_comm_vol["source"] = df_comm_vol["subreddit"]
 
-        df_avg = pd.concat([df_user_avg, df_comm_avg], ignore_index=True)
+    df_all_vol = pd.concat([df_user_vol, df_comm_vol], ignore_index=True)
 
-        fig_vol_avg = px.line(
-            df_avg,
-            x="time",
-            y="volatility",
-            color="source",
-            title="🌍 Volatility: Me vs Community Average"
-        )
-        st.plotly_chart(fig_vol_avg, use_container_width=True)
+    # Chart 1: Me vs Each Subreddit
+    fig_vol_each = px.line(
+        df_all_vol,
+        x="time",
+        y="volatility",
+        color="source",
+        title="🌪 Volatility: Me vs Community",
+        labels={"volatility": "Volatility", "source": "Source"}
+    )
+    st.plotly_chart(fig_vol_each, use_container_width=True)
+
+    # Chart 2: Me vs Community Average
+    df_comm_avg = df_comm.groupby(df_comm["time"].dt.date)["volatility"].mean().reset_index()
+    df_comm_avg["source"] = "Community Avg"
+
+    df_user_avg = df_user.groupby(df_user["time"].dt.date)["volatility"].mean().reset_index()
+    df_user_avg["source"] = "Me"
+
+    df_avg = pd.concat([df_user_avg, df_comm_avg], ignore_index=True)
+
+    fig_vol_avg = px.line(
+        df_avg,
+        x="time",
+        y="volatility",
+        color="source",
+        title="🌍 Volatility: Me vs Community Average"
+    )
+    st.plotly_chart(fig_vol_avg, use_container_width=True)
 
     # 🔎 Emotion Distribution: Subreddit vs My Emotion
     rows = []
-
-# Subreddit distributions
     for sub in df_comm["subreddit"].unique():
         df_sub = df_comm[df_comm["subreddit"] == sub]
         rows.append({
-            "Source": sub,  # <- each subreddit is a source
+            "Source": sub,
             "Positive": int((df_sub["sentiment_score"] > 0.1).sum()),
             "Neutral": int(df_sub["sentiment_score"].between(-0.1, 0.1).sum()),
             "Negative": int((df_sub["sentiment_score"] < -0.1).sum()),
         })
 
-# --- Add My Emotion distribution ---
     if not df_user.empty and "sentiment_score" in df_user.columns:
         rows.append({
             "Source": "My Emotion",
@@ -97,7 +103,6 @@ else:
             "Negative": int((df_user["sentiment_score"] < -0.1).sum()),
         })
 
-# --- Build chart ---
     if rows:
         dist_df = pd.DataFrame(rows).melt(
             id_vars="Source", var_name="Emotion", value_name="Count"
@@ -109,11 +114,5 @@ else:
             ),
             use_container_width=True,
         )
-
     else:
         st.info("ℹ️ Volatility data not available yet. Fetch sentiment first.")
-
-
-
-
-

@@ -154,9 +154,19 @@ with tab1:
         st.info("🔑 Please connect your Reddit account to see personal volatility.")      
 
 # ------------------ COMMUNITY TAB ------------------
+# ---------- Community tab (replace your existing tab2) ----------
 with tab2:
     st.subheader("🌍 Community Emotional Volatility")
     subs = st.text_input("Enter subreddit(s):", "depression, mentalhealth, bpd")
+
+    # choose aggregation interval (one value per subreddit per interval)
+    time_bin = st.selectbox(
+        "Aggregation interval (one point per subreddit per interval)",
+        ["1min", "5min", "15min", "30min", "1H", "3H", "6H", "1D"],
+        index=4
+    )
+    # persist selection so comparison tab can use the same interval
+    st.session_state["time_bin"] = time_bin
 
     if st.button("📥 Fetch Community Data"):
         all_posts = []
@@ -172,74 +182,157 @@ with tab2:
                 st.warning(f"⚠️ r/{sub}: {e}")
 
         df_comm = pd.DataFrame(all_posts)
-        if not df_comm.empty:
-            df_comm = analyze_sentiment(df_comm, _analyzer)
-            df_comm["volatility"] = df_comm.groupby("subreddit")["sentiment_score"].transform(
-                lambda x: x.rolling(5).std().fillna(0)
-            )
-            st.session_state.df_comm = df_comm  # ✅ fixed
 
-    df_comm = st.session_state.df_comm
+        if not df_comm.empty:
+            # ensure datetime and sorting
+            df_comm["time"] = pd.to_datetime(df_comm["time"])
+            df_comm = df_comm.sort_values(["subreddit", "time"]).reset_index(drop=True)
+
+            # analyze sentiment (use existing analyzer; fallback if missing)
+            try:
+                analyzer_obj = _analyzer
+            except NameError:
+                analyzer_obj = SentimentEnsemble()
+
+            df_comm = analyze_sentiment(df_comm, analyzer_obj)
+
+            # aggregate/resample into time bins so there is one value per bin
+            df_comm_agg = (
+                df_comm
+                .groupby(["subreddit", pd.Grouper(key="time", freq=time_bin)])["sentiment_score"]
+                .mean()
+                .reset_index()
+            )
+
+            # sort and compute rolling volatility on the aggregated series
+            df_comm_agg = df_comm_agg.sort_values(["subreddit", "time"]).reset_index(drop=True)
+            df_comm_agg["volatility"] = df_comm_agg.groupby("subreddit")["sentiment_score"].transform(
+                lambda s: s.rolling(window=3, min_periods=1).std().fillna(0)
+            )
+
+            # save both raw and aggregated in session_state
+            st.session_state.df_comm = df_comm          # raw per-post data
+            st.session_state.df_comm_agg = df_comm_agg  # aggregated for plotting
+
+            st.success(f"Fetched {len(df_comm)} posts — aggregated to {len(df_comm_agg)} points.")
+
+    # load from session_state (if present)
+    df_comm = st.session_state.get("df_comm", pd.DataFrame())
+    df_comm_agg = st.session_state.get("df_comm_agg", pd.DataFrame())
 
     if not df_comm.empty:
+        # show raw metrics if you want (keeps existing behavior)
         display_metrics(df_comm)
-        st.plotly_chart(
-            px.line(df_comm, x="time", y="sentiment_score", color="subreddit",
-                    title="📈 Community Sentiment", markers=True).update_yaxes(range=[-1, 1]),
-            use_container_width=True
-        )
-        st.plotly_chart(
-            px.line(df_comm, x="time", y="volatility", color="subreddit",
-                    title="🌪 Community Volatility", markers=True),
-            use_container_width=True
-        )
+
+        # Plot aggregated sentiment (one series per subreddit)
+        if not df_comm_agg.empty:
+            fig_sent = px.line(
+                df_comm_agg,
+                x="time",
+                y="sentiment_score",
+                color="subreddit",
+                title="📈 Community Sentiment (aggregated)",
+                markers=True
+            ).update_yaxes(range=[-1, 1])
+            st.plotly_chart(fig_sent, use_container_width=True)
+
+            fig_vol = px.line(
+                df_comm_agg,
+                x="time",
+                y="volatility",
+                color="subreddit",
+                title="🌪 Community Volatility (aggregated)",
+                markers=True
+            )
+            st.plotly_chart(fig_vol, use_container_width=True)
+        else:
+            st.info("No aggregated data yet — press 'Fetch Community Data' to compute aggregation.")
+    else:
+        st.info("No community data. Click 'Fetch Community Data' to load posts.")
 
 
-# ------------------ COMPARISON TAB ------------------
+# ---------- Comparison tab (replace your existing tab3) ----------
 with tab3:
     st.subheader("⚖️ You vs Community")
-    df_user, df_comm = st.session_state.df_user, st.session_state.df_comm
+    df_user = st.session_state.get("df_user", pd.DataFrame())
+    df_comm = st.session_state.get("df_comm", pd.DataFrame())          # raw per-post
+    df_comm_agg = st.session_state.get("df_comm_agg", pd.DataFrame())  # aggregated
+    time_bin = st.session_state.get("time_bin", "1min")
 
     if df_user.empty or df_comm.empty:
         st.warning("⚠️ Please fetch both datasets first.")
     else:
-        df_user["source"] = df_user["type"].str.capitalize()
-        df_comm["source"] = df_comm["subreddit"]
-        combined = pd.concat([df_user, df_comm])
+        # make sure user times are datetime & sorted
+        df_user["time"] = pd.to_datetime(df_user["time"])
+        df_user = df_user.sort_values("time").reset_index(drop=True)
+
+        # aggregate user to same time_bin so comparison is apples-to-apples
+        df_user_agg = (
+            df_user
+            .groupby(pd.Grouper(key="time", freq=time_bin))["sentiment_score"]
+            .mean()
+            .reset_index()
+        )
+        df_user_agg["source"] = df_user.get("type", "User").iloc[0].capitalize() if "type" in df_user.columns else "User"
+
+        # aggregated community should already exist; if not, compute a quick aggregation now
+        if df_comm_agg.empty:
+            df_comm_agg = (
+                df_comm
+                .groupby(["subreddit", pd.Grouper(key="time", freq=time_bin)])["sentiment_score"]
+                .mean()
+                .reset_index()
+            )
+            df_comm_agg["volatility"] = df_comm_agg.groupby("subreddit")["sentiment_score"].transform(
+                lambda s: s.rolling(window=3, min_periods=1).std().fillna(0)
+            )
+
+        # prepare combined DataFrame for sentiment comparison
+        # for plotting, we unify column names: 'source' (user) and 'subreddit' (community)
+        df_comm_agg_plot = df_comm_agg.rename(columns={"subreddit": "source"})
+        df_sent_comb = pd.concat([
+            df_user_agg.rename(columns={"sentiment_score": "sentiment_score", "time": "time"}).assign(source=df_user_agg["source"]),
+            df_comm_agg_plot[["time", "sentiment_score", "source"]]
+        ], ignore_index=True, sort=False)
 
         st.plotly_chart(
-            px.line(combined, x="time", y="sentiment_score", color="source",
-                    title="📈 Sentiment Comparison").update_yaxes(range=[-1, 1]),
+            px.line(df_sent_comb, x="time", y="sentiment_score", color="source",
+                    title="📈 Sentiment Comparison (aggregated)").update_yaxes(range=[-1, 1]),
             use_container_width=True
         )
+
+        # combined volatility plot (user volatility could be computed similarly if desired)
+        # For now show community volatility per subreddit (source)
+        df_comm_vol_plot = df_comm_agg.rename(columns={"subreddit": "source"})
         st.plotly_chart(
-            px.line(combined, x="time", y="volatility", color="source",
-                    title="🌪 Volatility Comparison"),
+            px.line(df_comm_vol_plot, x="time", y="volatility", color="source",
+                    title="🌪 Volatility Comparison (community aggregated)"),
             use_container_width=True
         )
 
-    # Emotion distribution
-    emotion_counts = []
-    if "subreddit" in df_comm.columns:
-        for sub in df_comm["subreddit"].unique():
-            df_sub = df_comm[df_comm["subreddit"] == sub]
-            emotion_counts.append({
-                "Subreddit": sub,
-                "Positive": (df_sub["sentiment_label"] == "positive").sum(),
-                "Neutral": (df_sub["sentiment_label"] == "neutral").sum(),
-                "Negative": (df_sub["sentiment_label"] == "negative").sum(),
-            })
+        # Emotion distribution (keep original behavior using raw df_comm)
+        emotion_counts = []
+        if "subreddit" in df_comm.columns:
+            for sub in df_comm["subreddit"].unique():
+                df_sub = df_comm[df_comm["subreddit"] == sub]
+                emotion_counts.append({
+                    "Subreddit": sub,
+                    "Positive": (df_sub["sentiment_label"] == "positive").sum(),
+                    "Neutral": (df_sub["sentiment_label"] == "neutral").sum(),
+                    "Negative": (df_sub["sentiment_label"] == "negative").sum(),
+                })
 
-        dist_df = pd.DataFrame(emotion_counts).melt(
-            id_vars="Subreddit", var_name="Emotion", value_name="Count"
-        )
-        fig_dist = px.bar(
-            dist_df, x="Subreddit", y="Count", color="Emotion",
-            barmode="group", title="🔎 Emotion Distribution by Subreddit"
-        )
-        st.plotly_chart(fig_dist, use_container_width=True)
-    else:
-        st.warning("⚠️ No 'subreddit' column found. Please fetch community data again.")
+            dist_df = pd.DataFrame(emotion_counts).melt(
+                id_vars="Subreddit", var_name="Emotion", value_name="Count"
+            )
+            fig_dist = px.bar(
+                dist_df, x="Subreddit", y="Count", color="Emotion",
+                barmode="group", title="🔎 Emotion Distribution by Subreddit"
+            )
+            st.plotly_chart(fig_dist, use_container_width=True)
+        else:
+            st.warning("⚠️ No 'subreddit' column found. Please fetch community data again.")
+
 
 # ------------------ BENCHMARK TAB ------------------
 with tab4:
